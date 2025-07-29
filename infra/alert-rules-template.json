@@ -1,0 +1,64 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "appInsightsName": { "type": "string" },
+      "location": { "type": "string" },
+      "alertEmail": { "type": "string" }
+    },
+    "resources": [
+      {
+        "type": "Microsoft.Insights/actionGroups",
+        "apiVersion": "2022-06-15",
+        "name": "apim-alert-group",
+        "location": "Global",
+        "properties": {
+          "enabled": true,
+          "groupShortName": "APIMAlert",
+          "emailReceivers": [
+            {
+              "name": "Admin",
+              "emailAddress": "[parameters('alertEmail')]",
+              "useCommonAlertSchema": true
+            }
+          ]
+        }
+      },
+      {
+        "type": "Microsoft.Insights/metricAlerts",
+        "apiVersion": "2018-03-01",
+        "name": "HighErrorRateAlert",
+        "location": "[parameters('location')]",
+        "dependsOn": [
+          "Microsoft.Insights/actionGroups/apim-alert-group"
+        ],
+        "properties": {
+          "severity": 2,
+          "enabled": true,
+          "scopes": [
+            "[resourceId('microsoft.insights/components', parameters('appInsightsName'))]"
+          ],
+          "evaluationFrequency": "PT5M",
+          "windowSize": "PT5M",
+          "criteria": {
+            "allOf": [
+              {
+                "criterionType": "StaticThresholdCriterion",
+                "metricName": "requests/failed",
+                "timeAggregation": "Total",
+                "operator": "GreaterThan",
+                "threshold": 10
+              }
+            ]
+          },
+          "autoMitigate": true,
+          "actions": [
+            {
+              "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', 'apim-alert-group')]"
+            }
+          ]
+        }
+      }
+    ]
+  }
+  

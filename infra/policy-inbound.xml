@@ -1,0 +1,41 @@
+<policies>
+  <inbound>
+    <base />
+
+    <!-- ✅ Enforce JWT -->
+    <validate-jwt header-name="Authorization" require-scheme="Bearer" failed-validation-httpcode="401">
+      <openid-config url="https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0/.well-known/openid-configuration" />
+      <audiences>
+        <audience>api://YOUR-CLIENT-ID</audience>
+      </audiences>
+    </validate-jwt>
+
+    <!-- ✅ IP Filtering -->
+    <ip-filter action="allow">
+      <address-range from="20.0.0.1" to="20.0.0.255" />
+    </ip-filter>
+
+    <!-- ✅ HTTPS Enforcement -->
+    <check-header name="X-Forwarded-Proto" failed-check-httpcode="403" failed-check-error-message="Only HTTPS allowed">
+      <value>https</value>
+    </check-header>
+
+    <!-- ✅ OAuth2 Setup Example (Optional for Client Credential Flow) -->
+    <!-- <set-header name="Authorization" exists-action="override">
+      <value>Bearer @{context.Variables["access_token"]}</value>
+    </set-header> -->
+    
+  </inbound>
+
+  <backend>
+    <base />
+  </backend>
+
+  <outbound>
+    <base />
+  </outbound>
+
+  <on-error>
+    <base />
+  </on-error>
+</policies>

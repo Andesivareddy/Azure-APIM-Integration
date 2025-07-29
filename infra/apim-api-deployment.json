@@ -1,0 +1,85 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "apimName": {
+        "type": "string",
+        "metadata": { "description": "Name of the APIM instance" }
+      },
+      "apiName": {
+        "type": "string",
+        "metadata": { "description": "Name of the API (e.g., student-api)" }
+      },
+      "appInsightsInstrumentationKey": {
+        "type": "string",
+        "metadata": { "description": "App Insights instrumentation key" }
+      }
+    },
+    "resources": [
+      {
+        "type": "Microsoft.ApiManagement/service/apis",
+        "name": "[concat(parameters('apimName'), '/', parameters('apiName'))]",
+        "apiVersion": "2021-08-01",
+        "properties": {
+          "format": "openapi+json",
+          "value": "[loadTextContent('openapi-definition.json')]",
+          // This will be part of your URL
+          "path": "studentapi",                        
+          "protocols": [ "https" ],
+          "displayName": "Student API",
+          // Require Ocp-Apim-Subscription-Key
+          "subscriptionRequired": true                 
+        }
+      },
+      {
+        "type": "Microsoft.ApiManagement/service/apis/policies",
+        "name": "[concat(parameters('apimName'), '/', parameters('apiName'), '/policy')]",
+        "apiVersion": "2021-08-01",
+        "dependsOn": [
+          "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiName'))]"
+        ],
+        "properties": {
+          "format": "xml",
+          "value": "[loadTextContent('policy-inbound.xml')]"   // Full inbound security policies here
+        }
+      },
+      {
+        "type": "Microsoft.ApiManagement/service/loggers",
+        "apiVersion": "2021-08-01",
+        "name": "[concat(parameters('apimName'), '/appinsights-logger')]",
+        "properties": {
+          "loggerType": "applicationInsights",
+          "description": "App Insights logger for API monitoring",
+          "credentials": {
+            "instrumentationKey": "[parameters('appInsightsInstrumentationKey')]"
+          },
+          "isBuffered": true
+        }
+      },
+      {
+        "type": "Microsoft.ApiManagement/service/diagnostics",
+        "apiVersion": "2021-08-01",
+        "name": "[concat(parameters('apimName'), '/applicationinsights')]",
+        "dependsOn": [
+          "[resourceId('Microsoft.ApiManagement/service/loggers', parameters('apimName'), 'appinsights-logger')]"
+        ],
+        "properties": {
+          "enabled": true,
+          "loggerId": "[resourceId('Microsoft.ApiManagement/service/loggers', parameters('apimName'), 'appinsights-logger')]",
+          "sampling": {
+            "samplingType": "fixed",
+            "percentage": 100
+          },
+          "frontend": {
+            "request": { "headers": [ "*" ], "body": { "bytes": 512 } },
+            "response": { "headers": [ "*" ], "body": { "bytes": 512 } }
+          },
+          "backend": {
+            "request": { "headers": [ "*" ], "body": { "bytes": 512 } },
+            "response": { "headers": [ "*" ], "body": { "bytes": 512 } }
+          }
+        }
+      }
+    ]
+  }
+  

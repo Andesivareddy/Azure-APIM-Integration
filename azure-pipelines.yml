@@ -1,0 +1,56 @@
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  azureSubscription: 'AzureServiceConnection'  # From DevOps > Project Settings > Service Connections
+  resourceGroup: 'prod-rg'
+  location: 'eastus'
+  appInsightsName: 'prod-appinsights'
+  alertEmail: 'admin@example.com'
+
+stages:
+- stage: DeployAPI
+  displayName: "Deploy API to Azure APIM"
+  jobs:
+  - job: ARM_Deploy
+    displayName: "Deploy APIM API and Policies"
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: AzureResourceManagerTemplateDeployment@3
+      displayName: 'Deploy API + Policies + App Insights Diagnostic'
+      inputs:
+        deploymentScope: 'Resource Group'
+        azureResourceManagerConnection: '$(azureSubscription)'
+        subscriptionId: '<your-subscription-id>'
+        resourceGroupName: '$(resourceGroup)'
+        location: '$(location)'
+        templateLocation: 'Linked artifact'
+        csmFile: 'infra/apim-api-deployment.json'
+        csmParametersFile: 'infra/apim-api-parameters.json'
+
+- stage: DeployAlerts
+  displayName: "Configure Monitoring & Alerts"
+  dependsOn: DeployAPI
+  jobs:
+  - job: ARM_Alerts
+    displayName: "Create Alert Rules for App Insights"
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: AzureResourceManagerTemplateDeployment@3
+      displayName: 'Deploy App Insights Alert Rules'
+      inputs:
+        deploymentScope: 'Resource Group'
+        azureResourceManagerConnection: '$(azureSubscription)'
+        subscriptionId: '<your-subscription-id>'
+        resourceGroupName: '$(resourceGroup)'
+        location: '$(location)'
+        templateLocation: 'Linked artifact'
+        csmFile: 'infra/alert-rules-template.json'
+        overrideParameters: |
+          -appInsightsName $(appInsightsName)
+          -location $(location)
+          -alertEmail $(alertEmail)
